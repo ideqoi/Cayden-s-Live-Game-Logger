@@ -89,6 +89,13 @@
       <div class="panel-title">Game Information</div>
       <div class="form-grid">
         <div class="form-group"><label>Date</label><input type="date" id="g-date" oninput="saveAndRecalc()" /></div>
+        <div class="form-group">
+          <label>Vision (G / C)</label>
+          <select id="g-gc" onchange="saveAndRecalc()">
+            <option value="G">Glasses (G)</option>
+            <option value="C">Contacts (C)</option>
+          </select>
+        </div>
         <div class="form-group"><label>Opponent</label><input type="text" id="g-opp" placeholder="Opponent Name" oninput="saveAndRecalc()" /></div>
         <div class="form-group">
           <label>Result</label>
@@ -163,7 +170,7 @@
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxwP77daoD87t3TinnNo5-7U7wxF2J8ZPAXRgTCsRbiUlgJuWII6xDutrFjOUJ9z4xV/exec";
 
     let gameState = {
-      gameInfo: { date: "", opponent: "", result: "W", score: "" },
+      gameInfo: { date: "", glassesOrContacts: "G", opponent: "", result: "W", score: "" },
       stats: { pts: 0, reb: 0, ast: 0, stls: 0, fto: 0, fouls: 0, drnFls: 0, trueShots: 0, twoPm: 0, twoPa: 0, threePm: 0, threePa: 0, ftm: 0, fta: 0 },
       rotations: [
         { minIn: 20, secIn: 0, difIn: 0, minOut: 0, secOut: 0, difOut: 0 }
@@ -183,6 +190,9 @@
             stats: Object.assign({}, gameState.stats, data.stats),
             rotations: data.rotations && data.rotations.length > 0 ? data.rotations : gameState.rotations
           };
+          if (!gameState.gameInfo.glassesOrContacts && !gameState.gameInfo.gc) {
+            gameState.gameInfo.glassesOrContacts = "G";
+          }
           localStorage.setItem('cayden_active_game_cache', JSON.stringify(gameState));
           setStatus("Synced with Drive");
         } else {
@@ -198,7 +208,12 @@
     function fallbackLocal(msg) {
       const local = localStorage.getItem('cayden_active_game_cache');
       if (local) {
-        try { gameState = JSON.parse(local); } catch(e){}
+        try {
+          gameState = JSON.parse(local);
+          if (gameState.gameInfo && !gameState.gameInfo.glassesOrContacts && !gameState.gameInfo.gc) {
+            gameState.gameInfo.glassesOrContacts = "G";
+          }
+        } catch(e){}
       }
       setStatus(msg);
     }
@@ -244,6 +259,8 @@
       const gi = gameState.gameInfo || {};
       const st = gameState.stats || {};
       document.getElementById('g-date').value = gi.date || "";
+      const rawGC = (gi.glassesOrContacts || gi.gc || "G").toUpperCase();
+      document.getElementById('g-gc').value = rawGC === "C" ? "C" : "G";
       document.getElementById('g-opp').value = gi.opponent || "";
       document.getElementById('g-res').value = gi.result || "W";
       document.getElementById('g-score').value = gi.score || "";
@@ -275,6 +292,7 @@
 
       gameState.gameInfo = {
         date: document.getElementById('g-date').value,
+        glassesOrContacts: document.getElementById('g-gc').value,
         opponent: document.getElementById('g-opp').value,
         result: document.getElementById('g-res').value,
         score: document.getElementById('g-score').value
@@ -431,9 +449,11 @@
       const gi = gameState.gameInfo;
       const st = gameState.stats;
       const pmStr = totalPm > 0 ? `+${totalPm}` : `${totalPm}`;
+      const vision = (gi.glassesOrContacts || "G").toUpperCase() === "C" ? "C" : "G";
 
       return {
         date: gi.date || new Date().toISOString().split('T')[0],
+        glassesOrContacts: vision,
         opponent: gi.opponent || "Opponent",
         result: gi.result || "W",
         score: gi.score || "-",
@@ -458,8 +478,9 @@
 
     function copyFormattedSummary() {
       const g = getCompiledGame();
+      const visionLabel = g.glassesOrContacts === "C" ? "Contacts (C)" : "Glasses (G)";
       const text = `🏀 Cayden's Game Summary
-Opponent: ${g.opponent} (${g.result} ${g.score})
+Opponent: ${g.opponent} (${g.result} ${g.score}) | Vision: ${visionLabel}
 Date: ${g.date} | MIN: ${g.min} | +/-: ${g.plusMinus}
 PTS: ${g.pts} | REB: ${g.reb} | AST: ${g.ast} | STL: ${g.stls} | FTO: ${g.fto}
 Shooting: 2PT ${g.twoPm}/${g.twoPa} | 3PT ${g.threePm}/${g.threePa} | FT ${g.ftm}/${g.fta}
@@ -481,7 +502,7 @@ Fouls: ${g.fouls} | Drawn Fouls: ${g.drnFls} | True Shots: ${g.trueShots}`;
     function resetForNextGame() {
       if (confirm("Reset all fields for the next game? (Make sure you've shared or copied your current stats first!)")) {
         gameState = {
-          gameInfo: { date: "", opponent: "", result: "W", score: "" },
+          gameInfo: { date: "", glassesOrContacts: "G", opponent: "", result: "W", score: "" },
           stats: { pts: 0, reb: 0, ast: 0, stls: 0, fto: 0, fouls: 0, drnFls: 0, trueShots: 0, twoPm: 0, twoPa: 0, threePm: 0, threePa: 0, ftm: 0, fta: 0 },
           rotations: [
             { minIn: 20, secIn: 0, difIn: 0, minOut: 0, secOut: 0, difOut: 0 }
@@ -498,4 +519,3 @@ Fouls: ${g.fouls} | Drawn Fouls: ${g.drnFls} | True Shots: ${g.trueShots}`;
   </script>
 </body>
 </html>
-
